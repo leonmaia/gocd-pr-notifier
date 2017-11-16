@@ -29,10 +29,21 @@ func (w *Worker) Start() {
 
 			select {
 			case work := <-w.Work:
-				fmt.Printf("worker%d: Received work request, delaying for %f seconds\n", w.ID, work.Delay.Seconds())
+				fmt.Printf("worker%d: Received work request\n", w.ID)
 
-				time.Sleep(work.Delay)
-				fmt.Printf("Doing request again")
+				for {
+					time.Sleep(work.Delay)
+					fmt.Printf("worker%d: Checking status of the pipeline\n", w.ID)
+					result := isPipelineAvailable()
+					switch result {
+					case true:
+						work.Request.Do()
+						return
+					default:
+						fmt.Printf("worker%d: Pipeline is busy trying again in a few seconds\n", w.ID)
+					}
+				}
+
 				work.Request.Do()
 
 			case <-w.QuitChan:

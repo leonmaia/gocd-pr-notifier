@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -15,20 +16,32 @@ var (
 	Authentication = flag.String("auth", "", "gocd authentication")
 )
 
+type GoCDPipelineResponse struct {
+	Schedulable bool
+}
+
+func isPipelineAvailable() bool {
+	status := GoCDPipelineResponse{}
+	var url = fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/status", *HTTPAddr)
+	req, _ := requests.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", *Authentication)
+	resp, _ := req.Do()
+	json.NewDecoder(resp.Body).Decode(&status)
+	return status.Schedulable
+}
+
 func notifyGoCDOfChangeInPR(w http.ResponseWriter, r *http.Request) {
+	flag.Parse()
 	var url = fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/schedule", *HTTPAddr)
 	req, _ := requests.NewRequest("POST", url, nil)
-
 	req.Header.Set("Authorization", *Authentication)
 	req.Header.Set("Confirm", "true")
-	response, err := req.Do()
-	if err != nil {
-		fmt.Println(err)
-	}
-	if response.StatusCode == 409 {
-		work := WorkRequest{Request: req, Delay: 90 * time.Second}
+
+	if isPipelineAvailable() {
+		req.Do()
+	} else {
+		work := WorkRequest{Request: req, Delay: 10 * time.Second}
 		Collector(work)
-		return
 	}
 }
 
