@@ -7,6 +7,9 @@ import (
 )
 
 type WorkRequest struct {
-	Request *requests.Request
-	Delay   time.Duration
+	Request        *requests.Request
+	Delay          time.Duration
+	PipelineName   string
+	StatusCheckURL string
+	Auth           string
 }

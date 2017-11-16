@@ -6,69 +6,33 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"strings"
-	"time"
-
-	"github.com/leonmaia/requests"
 )
 
 var (
-	HTTPAddr       = flag.String("http", "127.0.0.1", "gocd address")
-	Authentication = flag.String("auth", "", "gocd authentication")
+	httpAddr       = flag.String("http", "127.0.0.1", "gocd address")
+	authentication = flag.String("auth", "", "gocd authentication")
+	pipelineName   = flag.String("pipeline_name", "", "pipeline name to trigger build")
+	materialName   = flag.String("material_name", "", "material name to trigger build")
 )
 
-type GoCDPipelineResponse struct {
-	Schedulable bool
-}
-
-type GitHubPayload struct {
-	after string
-}
-
-func isPipelineAvailable() bool {
-	status := GoCDPipelineResponse{}
-	var url = fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/status", *HTTPAddr)
-	req, _ := requests.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", *Authentication)
-	resp, err := req.Do()
-	if err != nil {
-		log.Fatal("Error while getting pipeline status: ", err)
-	}
-	json.NewDecoder(resp.Body).Decode(&status)
-	return status.Schedulable
-}
-
-func notifyGoCDOfChangeInPR(w http.ResponseWriter, r *http.Request) {
+func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	ghRequest := GitHubPayload{}
-	var apiURL = fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/schedule", *HTTPAddr)
-
-	form := url.Values{}
-	json.NewDecoder(r.Body).Decode(&ghRequest)
-	form.Add("materials[pr-material]", ghRequest.after)
-
-	req, err := requests.NewRequest("POST", apiURL, strings.NewReader(form.Encode()))
+	err := json.NewDecoder(r.Body).Decode(&ghRequest)
 	if err != nil {
-		log.Fatal("error while creating request: ", err)
+		log.Fatal("Error while decoding request: ", err)
+		return
 	}
-	req.Header.Set("Authorization", *Authentication)
-	req.Header.Set("Confirm", "true")
 
-	if isPipelineAvailable() {
-		_, err := req.Do()
-		if err != nil {
-			log.Fatal("Error while scheduling: ", err)
-		}
-	} else {
-		work := WorkRequest{Request: req, Delay: 10 * time.Second}
-		Collector(work)
-	}
+	statusCheckURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/%s/status", *httpAddr, *pipelineName)
+	notifyURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/schedule", *httpAddr)
+
+	notifyGoCDOfChangeInPR(*pipelineName, *materialName, notifyURL, statusCheckURL, *authentication, ghRequest)
 }
 
 func main() {
 	flag.Parse()
 	StartDispatcher(100)
-	http.HandleFunc("/github-webhook", notifyGoCDOfChangeInPR)
+	http.HandleFunc("/github-webhook", webhookHandler)
 	err := http.ListenAndServe(":9090", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

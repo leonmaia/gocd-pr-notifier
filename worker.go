@@ -30,11 +30,10 @@ func (w *Worker) Start() {
 			select {
 			case work := <-w.Work:
 				fmt.Printf("worker%d: Received work request\n", w.ID)
-
 				for {
 					time.Sleep(work.Delay)
 					fmt.Printf("worker%d: Checking status of the pipeline\n", w.ID)
-					result := isPipelineAvailable()
+					result := isPipelineAvailable(work.PipelineName, work.StatusCheckURL, work.Auth)
 					switch result {
 					case true:
 						work.Request.Do()
@@ -43,19 +42,10 @@ func (w *Worker) Start() {
 						fmt.Printf("worker%d: Pipeline is busy trying again in a few seconds\n", w.ID)
 					}
 				}
-
-				work.Request.Do()
-
 			case <-w.QuitChan:
 				fmt.Printf("worker%d stopping\n", w.ID)
 				return
 			}
 		}
-	}()
-}
-
-func (w *Worker) Stop() {
-	go func() {
-		w.QuitChan <- true
 	}()
 }
