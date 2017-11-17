@@ -33,7 +33,7 @@ func (w *Worker) Start() {
 				for {
 					time.Sleep(work.Delay)
 					fmt.Printf("worker%d: Checking status of the pipeline\n", w.ID)
-					result := isPipelineAvailable(work.PipelineName, work.StatusCheckURL, work.Auth)
+					result, _ := isPipelineAvailable(work.PipelineName, work.StatusCheckURL, work.Auth)
 					switch result {
 					case true:
 						work.Request.Do()
