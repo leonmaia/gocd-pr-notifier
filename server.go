@@ -24,7 +24,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	statusCheckURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/%s/status", *httpAddr, *pipelineName)
-	notifyURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/orgs-service-pr/schedule", *httpAddr)
+	notifyURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/%s/schedule", *httpAddr, *pipelineName)
 
 	notifyGoCDOfChangeInPR(*pipelineName, *materialName, notifyURL, statusCheckURL, *authentication, ghRequest)
 }
