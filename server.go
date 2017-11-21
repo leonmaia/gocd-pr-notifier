@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
 )
 
 var (
@@ -17,10 +16,6 @@ var (
 )
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
-	// Save a copy of this request for debugging.
-	requestDump, _ := httputil.DumpRequest(r, true)
-	fmt.Println(string(requestDump))
-
 	ghPayload := GitHubPullRequestPayload{}
 	err := json.NewDecoder(r.Body).Decode(&ghPayload)
 	if err != nil {
@@ -32,8 +27,12 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	statusCheckURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/%s/status", *httpAddr, *pipelineName)
 	notifyURL := fmt.Sprintf("http://%s:8153/go/api/pipelines/%s/schedule", *httpAddr, *pipelineName)
 
-	if err := notifyGoCDOfChangeInPR(*pipelineName, *materialName, notifyURL, statusCheckURL, *authentication, ghPayload); err != nil {
-		http.Error(w, err.Error(), 500)
+	if ghPayload.Action == "synchronize" || ghPayload.Action == "opened" {
+		if err := notifyGoCDOfChangeInPR(*pipelineName, *materialName, notifyURL, statusCheckURL, *authentication, ghPayload); err != nil {
+			http.Error(w, err.Error(), 500)
+		}
+	} else {
+		http.Error(w, fmt.Errorf("Action: %s is not supported", ghPayload.Action).Error(), 400)
 	}
 }
 

@@ -12,15 +12,14 @@ import (
 
 func isPipelineAvailable(pipelineName, statusCheckURL, auth string) (bool, error) {
 	status := GoCDPipelineResponse{}
-	req, _ := createGoCDRequest("GET", statusCheckURL, auth, nil)
+	req, _ := createGoCDRequest("GET", statusCheckURL, auth, strings.NewReader(""))
 	resp, err := req.Do()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error while doing check pipeline request to gocd: %s", err.Error())
 	}
-
 	err = json.NewDecoder(resp.Body).Decode(&status)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error while decoding gocd response: %s", err.Error())
 	}
 
 	return status.Schedulable, nil
